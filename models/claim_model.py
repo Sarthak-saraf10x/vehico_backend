@@ -394,16 +394,19 @@ class ClaimModel:
             self.db_handler.execute_query(query, (status, appointment_id))
         except Exception as e:
             raise Exception(f"Failed to update appointment status: {e}")
-    def  update_claim_status(self, claim_id,status,approved_amount,comments):
+    def update_claim_status(self, claim_id, status, approved_amount=None, comments=None):
         query = """
-
             UPDATE claims
-            SET status = %s,approved_amount = %s, comments = %s, updated_at = CURRENT_TIMESTAMP
-            WHERE claim_id = %s"""
-        try: self.db_handler.execute_query(query, (status, claim_id,approved_amount,comments))
+            SET status = %s, 
+                approved_amount = COALESCE(%s, approved_amount), 
+                comments = COALESCE(%s, comments), 
+                updated_at = CURRENT_TIMESTAMP
+            WHERE claim_id = %s
+        """
+        try:
+            self.db_handler.execute_query(query, (status, approved_amount, comments, claim_id))
         except Exception as e:
             raise Exception(f"Failed to update claim status: {e}")
-        
     def get_documents_by_claim_id(self, claim_id):
         query = """
             SELECT document_id, claim_id, document_url, document_type, uploaded_at
