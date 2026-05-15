@@ -274,13 +274,15 @@ class ClaimController:
             data = request.get_json()
             status = data.get('status') 
             approved_amount = data.get('approved_amount', 0)
+            if approved_amount == "":
+                approved_amount = 0
             comments = data.get('comments', None)
             
 
             if status not in ['approved', 'rejected']:
                 return jsonify({"error": "Invalid status"}), 400
-            if status == 'approved' and approved_amount is None:
-                return jsonify({"error": "Approved amount required for approval"}), 400
+            if status == 'approved' and (approved_amount is None or float(approved_amount) <= 0):
+                return jsonify({"error": "Valid approved amount required for approval"}), 400
 
             claim = self.claim_model.get_claim_by_id(claim_id)
             if not claim:   
