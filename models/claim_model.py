@@ -317,10 +317,15 @@ class ClaimModel:
 
     def get_claims_with_inspection_status(self):
         query = """
+            WITH LatestAppointments AS (
+                SELECT claim_id, appointment_id, status, inspection_report,
+                       ROW_NUMBER() OVER(PARTITION BY claim_id ORDER BY created_at DESC) as rn
+                FROM inspection_appointments
+            )
             SELECT c.claim_id, c.policy_id, c.customer_id, c.status, c.created_at, c.updated_at,
                    ia.appointment_id, ia.status as appointment_status, ia.inspection_report
             FROM claims c
-            LEFT JOIN inspection_appointments ia ON c.claim_id = ia.claim_id
+            LEFT JOIN LatestAppointments ia ON c.claim_id = ia.claim_id AND ia.rn = 1
             ORDER BY CASE
                 WHEN ia.status = 'completed' THEN 1
                 WHEN c.status = 'pending_inspection' THEN 2
@@ -350,14 +355,14 @@ class ClaimModel:
         update_claim_status
   
         
-    def get_appointment_by_id(self, claim_id):
+    def get_appointment_by_id(self, appointment_id):
         query = """
             SELECT appointment_id, claim_id, inspection_guide_id, appointment_date, status, inspection_report
             FROM inspection_appointments
-            WHERE claim_id = %s
+            WHERE appointment_id = %s
         """
         try:
-            result = self.db_handler.execute_query(query, (claim_id,), fetch=True)
+            result = self.db_handler.execute_query(query, (appointment_id,), fetch=True)
             if result:
                 return {
                     "appointment_id": str(result[0][0]),
