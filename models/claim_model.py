@@ -188,9 +188,12 @@ class ClaimModel:
     def get_claims_by_inspection_guide(self, inspection_guide_id):
         query = """
             SELECT c.claim_id, c.customer_id, c.policy_id, c.claim_date, c.status, c.inspection_date, 
-                   c.inspection_guide_id, c.claims_officer_id, c.comments, c.created_at, c.updated_at,c.approved_amount
+                   c.inspection_guide_id, c.claims_officer_id, c.comments, c.created_at, c.updated_at,
+                   c.approved_amount, u.full_name, p.policy_name
             FROM claims c
             JOIN inspection_appointments ia ON c.claim_id = ia.claim_id
+            LEFT JOIN users u ON c.customer_id = u.user_id
+            LEFT JOIN policies p ON c.policy_id = p.policy_id
             WHERE ia.inspection_guide_id = %s
         """
         try:
@@ -208,8 +211,9 @@ class ClaimModel:
                     "comments": row[8],
                     "created_at": row[9].isoformat() if row[9] else None,
                     "updated_at": row[10].isoformat() if row[10] else None,
-                    "approved_amount": float(row[11]) if row[11] is not None else 0.0
-
+                    "approved_amount": float(row[11]) if row[11] is not None else 0.0,
+                    "customer_name": row[12] or "Unknown",
+                    "policy_name": row[13] or "Unknown"
                 }
                 for row in results
             ] if results else []
@@ -323,9 +327,12 @@ class ClaimModel:
                 FROM inspection_appointments
             )
             SELECT c.claim_id, c.policy_id, c.customer_id, c.status, c.created_at, c.updated_at,
-                   ia.appointment_id, ia.status as appointment_status, ia.inspection_report
+                   ia.appointment_id, ia.status as appointment_status, ia.inspection_report,
+                   u.full_name, p.policy_name
             FROM claims c
             LEFT JOIN LatestAppointments ia ON c.claim_id = ia.claim_id AND ia.rn = 1
+            LEFT JOIN users u ON c.customer_id = u.user_id
+            LEFT JOIN policies p ON c.policy_id = p.policy_id
             ORDER BY CASE
                 WHEN ia.status = 'completed' THEN 1
                 WHEN c.status = 'pending_inspection' THEN 2
@@ -344,7 +351,9 @@ class ClaimModel:
                     "updated_at": row[5].isoformat(),
                     "appointment_id": str(row[6]) if row[6] else None,
                     "appointment_status": row[7],
-                    "inspection_report": row[8]
+                    "inspection_report": row[8],
+                    "customer_name": row[9] or "Unknown",
+                    "policy_name": row[10] or "Unknown"
                 }
                 for row in results
             ]

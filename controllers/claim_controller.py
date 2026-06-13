@@ -119,8 +119,9 @@ class ClaimController:
                 if file_ext not in allowed_extensions:
                     return jsonify({"error": f"Invalid file type. Allowed: {', '.join(allowed_extensions)}"}), 400
                 unique_filename = f"{uuid.uuid4()}{file_ext}"
-                file_path = os.path.join(self.upload_dir, unique_filename)
-                os.makedirs(self.upload_dir, exist_ok=True)
+                report_dir = os.path.join(self.upload_dir, 'inspection_reports')
+                os.makedirs(report_dir, exist_ok=True)
+                file_path = os.path.join(report_dir, unique_filename)
                 file.save(file_path)
                 image_url = f"http://localhost:5000/uploads/inspection_reports/{unique_filename}"
 
@@ -184,7 +185,17 @@ class ClaimController:
             return jsonify(claims), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 400
-
+    @require_jwt
+    def get_assigned_claims(self, user_id):
+        try:
+           
+            user_id = request.user['user_id']
+            user_role = request.user['role']
+            claims = self.claim_service.get_assigned_claims(user_id, user_role)
+            return jsonify(claims), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 400
+        
     @require_jwt
     def get_claims_by_officer(self):
         try:
@@ -295,7 +306,16 @@ class ClaimController:
             return jsonify({"message": f"Claim {status} successfully"}), 200
         except Exception as e:
             return jsonify({"error": f"Failed to process claim: {str(e)}"}), 500
-@claim_bp.route('/uploads/<filename>')
+@claim_bp.route('/uploads/<path:filename>')
 def uploaded_file(filename):
-    return send_from_directory('uploads', filename)
+    exact_path = os.path.join('uploads', filename)
+    if os.path.exists(exact_path) and os.path.isfile(exact_path):
+        return send_from_directory('uploads', filename)
+    
+    base_name = os.path.basename(filename)
+    root_path = os.path.join('uploads', base_name)
+    if os.path.exists(root_path) and os.path.isfile(root_path):
+        return send_from_directory('uploads', base_name)
+        
+    return "File not found", 404
 

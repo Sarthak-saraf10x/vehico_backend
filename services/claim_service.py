@@ -140,9 +140,17 @@ class ClaimService:
             return self.policy_model.get_policies_with_claim_counts(user_id)
         except Exception as e:
             raise Exception(f"Service error: {e}")
-    def get_claim_details_for_officer(self,claim_id):
+    def get_claim_details_for_officer(self, claim_id):
         try: 
-            return self.claim_model.get_claim_by_id(claim_id)
+            appointments = self.claim_model.get_inspection_appointments(claim_id)
+            if not appointments:
+                return None
+            # Find the appointment with a completed status or containing an inspection report
+            completed_appts = [a for a in appointments if a.get('status') == 'completed' or a.get('inspection_report')]
+            if completed_appts:
+                return completed_appts[0]
+            # Fallback to the latest appointment
+            return appointments[0]
         except Exception as e:
             raise Exception(f"Service error: {e}")
         
@@ -166,5 +174,30 @@ class ClaimService:
     def update_appointment_status(self, appointment_id, status):
         try:
             return self.claim_model.update_appointment_status(appointment_id, status)
+        except Exception as e:
+            raise Exception(f"Service error: {e}")
+
+    def get_assigned_claims(self, user_id, user_role):
+        try:
+            if user_role == 'inspection_guide':
+                claims = self.claim_model.get_claims_by_inspection_guide(user_id)
+            elif user_role == 'claims_officer':
+                claims = self.claim_model.get_claims_by_officer(user_id)
+            else:
+                raise ValueError("Invalid user role")
+
+            # Bundle each claim with its appointments in one go
+            result = []
+            seen_claim_ids = set()
+            for claim in claims:
+                if claim['claim_id'] in seen_claim_ids:
+                    continue
+                seen_claim_ids.add(claim['claim_id'])
+                appointments = self.claim_model.get_inspection_appointments(claim['claim_id'])
+                result.append({
+                    "claim": claim,
+                    "appointments": appointments
+                })
+            return result
         except Exception as e:
             raise Exception(f"Service error: {e}")

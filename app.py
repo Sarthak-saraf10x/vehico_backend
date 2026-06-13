@@ -6,6 +6,10 @@ from controllers.claim_controller import ClaimController,claim_bp
 
 import os
 import logging
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -71,6 +75,9 @@ claim_bp.route('/<claim_id>', methods=['GET'])(claim_controller.get_claim_detail
 claim_bp.route('/<claim_id>', methods=['PUT'])(claim_controller.update_claim_status)
 claim_bp.route('/customer', methods=['GET'])(claim_controller.get_claims_by_customer)
 claim_bp.route('/inspection_guide', methods=['GET'])(claim_controller.get_claims_by_inspection_guide)
+claim_bp.route('/get_assigned_claims/<user_id>',methods=['GET'])(claim_controller.get_assigned_claims)
+
+
 
 policy_bp.route('/<policy_id>/checklist', methods=['GET'])(claim_controller.get_policy_checklist)
 policy_bp.route('/<user_id>/claims', methods=['GET'])(claim_controller.get_policies_with_claims)
@@ -85,10 +92,21 @@ app.register_blueprint(user_bp, url_prefix='/api/users')
 app.register_blueprint(policy_bp, url_prefix='/api/policies')
 app.register_blueprint(claim_bp, url_prefix='/api/claims')
 
-# Serve uploaded files
-@app.route('/uploads/<filename>')
+# Serve uploaded files from uploads directory (supporting subdirectories)
+@app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
-    return send_from_directory('uploads', filename)
+    # Try the exact path first
+    exact_path = os.path.join('uploads', filename)
+    if os.path.exists(exact_path) and os.path.isfile(exact_path):
+        return send_from_directory('uploads', filename)
+    
+    # Fallback to the root of the uploads folder if the file is there
+    base_name = os.path.basename(filename)
+    root_path = os.path.join('uploads', base_name)
+    if os.path.exists(root_path) and os.path.isfile(root_path):
+        return send_from_directory('uploads', base_name)
+        
+    return "File not found", 404
 
 
 if __name__ == '__main__':
